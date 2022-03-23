@@ -8,7 +8,7 @@ from django.db.models import Q
 from django.contrib.auth.models import User
 from .models import Profile, Skill
 from .forms import CustomUserCreationForm, ProfileForm, SkillForm
-from .utils import searchProfiles
+from .utils import searchProfiles, paginateProfiles
 
 # Create your views here.
 
@@ -19,7 +19,7 @@ def loginUser(request):
         return redirect("profiles")
 
     if request.method == "POST":
-        username = request.POST["username"]
+        username = request.POST["username"].lower()
         password = request.POST["password"]
 
         try:
@@ -31,7 +31,7 @@ def loginUser(request):
 
         if user is not None:
             login(request, user)
-            return redirect("profiles")
+            return redirect(request.GET['next'] if 'next' in request.GET else 'account')
         else:
             messages.error(request, "Username OR Password is incorrect")
 
@@ -69,7 +69,9 @@ def registerUser(request):
 
 def profiles(request):
     profiles, search_query = searchProfiles(request)
-    context = {"profiles": profiles, "search_query": search_query}
+    custom_range, profiles = paginateProfiles(request, profiles, 3)
+    context = {"profiles": profiles, "search_query": search_query,
+               'custom_range': custom_range}
     return render(request, "users/profiles.html", context)
 
 
@@ -151,3 +153,9 @@ def deleteSkill(request, pk):
         return redirect('account')
     context = {'object': skill}
     return render(request, 'delete_template.html', context)
+
+
+@login_required(login_url='login')
+def inbox(request):
+    context = {}
+    return render(request, 'users/inbox.html', context)
