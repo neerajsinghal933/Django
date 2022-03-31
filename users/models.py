@@ -73,3 +73,10 @@ class Message(models.Model):
 
     class Meta:
         ordering = ['is_read', '-created']
+
+
+class UserOTP(models.Model):
+    user = models.ForeignKey(
+        Profile, on_delete=models.CASCADE)
+    time_st = models.DateTimeField(auto_now=True)
+    otp = models.SmallIntegerField()

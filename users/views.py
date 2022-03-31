@@ -6,10 +6,12 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Q
 from django.contrib.auth.models import User
-from .models import Profile, Skill, Message
+from .models import Profile, Skill, Message, UserOTP
 from .forms import CustomUserCreationForm, ProfileForm, SkillForm, MessageForm
 from .utils import searchProfiles, paginateProfiles
-
+import random
+from django.core.mail import send_mail
+from django.conf import settings
 # Create your views here.
 
 
@@ -49,15 +51,49 @@ def registerUser(request):
     form = CustomUserCreationForm()
 
     if request.method == "POST":
+        get_otp = request.POST.get('otp')
+
+        if get_otp:
+            get_user = request.POST.get('user')
+            user = User.objects.get(username=get_user)
+            usr = Profile.objects.get(username=get_user)
+
+            if int(get_otp) == UserOTP.objects.filter(user=usr).last().otp:
+                user.is_active = True
+                user.save()
+                messages.success(
+                    request, f"User account was created for {user.email}")
+                # login(request, get_user)
+                return redirect("edit-account")
+            else:
+                messages.error(request, "Wrong OTP!")
+                return render(request, "users/login_register.html", {'otp': True, 'user': get_user})
+
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
             user = form.save(commit=False)
             user.username = user.username.lower()
+            user.is_active = False
             user.save()
 
-            messages.success(request, "User account was created!")
-            login(request, user)
-            return redirect("edit-account")
+            # curr_user = User.objects.get(username=user.username)
+            profile = Profile.objects.get(username=user.username)
+            user_otp = random.randint(100000, 999999)
+            UserOTP.objects.create(user=profile, otp=user_otp)
+            mess = f"hello {user.username}, \n Your OTP is {user_otp}\nThanks!"
+
+            send_mail(
+                "Welcome to DevSearch - Verify your Email", mess,
+                settings.EMAIL_HOST_USER,
+                [user.email],
+                fail_silently=False
+            )
+
+            return render(request, "users/login_register.html", {'otp': True, 'user': user})
+
+            # messages.success(request, "User account was created!")
+            # login(request, user)
+            # return redirect("edit-account")
 
         else:
             messages.error(
